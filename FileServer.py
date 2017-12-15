@@ -1,8 +1,12 @@
 
 import web
 import os
+import os.path
 import utils
 import time
+import logging
+from contextlib import closing
+from httplib import HTTPConnection
 
 class FileServer: # This class will be responsible for storing and sharing files
     
@@ -10,7 +14,7 @@ class FileServer: # This class will be responsible for storing and sharing files
     def GET(self, filepath): # fucntion will GET the correct file 
         
         web.header('Content-Type', 'text/plain; charset=UTF-8')
-         _raise_if_dir_or_not_servable(filepath)
+        _raise_if_dir_or_not_servable(filepath)
         _raise_if_not_exists(filepath)
         _raise_if_locked(filepath)
         
@@ -20,10 +24,27 @@ class FileServer: # This class will be responsible for storing and sharing files
             return f.read()
 
     def PUT(self, filepath): # replace file by data
-            pass
+        _raise_if_dir_or_not_servable(filepath)
+        _raise_if_locked(filepath)
+
+        p = _get_local_path(filepath)
+
+        with open(p, 'w') as f:
+            f.write(web.data())
+
+        web.header('Last-Modified', time.ctime(os.path.getmtime(p)))
+
+        return ''
         
     def DELETE(self, filepath): # This'll remove the filepath if unlocked or if it gets the correct lock_id
-        pass
+        web.header('Content-Type', 'text/plain; charset=UTF-8')
+
+        _raise_if_dir_or_not_servable(filepath)
+        _raise_if_not_exists(filepath)
+        _raise_if_locked(filepath)
+
+        os.unlink(_get_local_path(filepath))
+        return 'OK'
     
     def HEAD(self, filepath):# To return the header/last time the file was modified
             
@@ -61,7 +82,17 @@ def _raise_if_locked(filepath): #Exception 401 if file is locked and lockid does
     host, port = utils.get_host_port(_config['lockserver'])
     if utils.is_locked(filepath, host, port, i.get('lock_id', None)):
         raise web.unauthorized()
+        
+def _init_file_server():
+    """Just notify the nameserver about which directories we serve."""
 
+    host, port = utils.get_host_port(_config['nameserver'])
+    with closing(HTTPConnection(host, port)) as con:
+        data = 'srv=%s&dirs=%s' % (_config['srv'],
+                                '\n'.join(_config['directories']),)
+        con.request('POST', '/', data)
+
+        
 _config = {
         
         'lockserver': None,
@@ -71,3 +102,7 @@ _config = {
         'srv': None,
         }
 
+logging.info('Loading config file fileserver.dfs.json.')
+utils.load_config(_config, 'fileserver.dfs.json')
+
+_init_file_server()
