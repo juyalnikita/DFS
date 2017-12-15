@@ -5,6 +5,14 @@ Created on Thu Dec 11 22:33:44 2017
 @author: Nikita Juyal
 """
 
+import atexit
+import datetime
+import logging
+import web
+import utils
+import collections
+import shelve
+import random
 
 Lock = collections.namedtuple('Lock', 'lock_id granted last_used')
 
@@ -119,3 +127,59 @@ class LockServer: # lock server will handle locking of files
 
         else:
             return 'OK'
+        
+def _lock_expired(filepath): # If lock has expired
+    
+    last_used = _locks[filepath].last_used
+    return (datetime.datetime.now() - last_used).seconds> _config['lock_lifetime']
+
+
+def _grant_new_lock(filepath): # If new lock can be created. Also revokes the older lock and creates a new one in place
+   
+    if filepath in _locks:
+        if not _lock_expired(filepath):
+            #Lock has not expired
+            raise Exception('Unable to grant a new lock (%s).' % filepath)
+
+        _revoke_lock(filepath)
+
+    return _new_lock(filepath)
+
+
+def _new_lock(filepath): # creates new lock and returns lock id
+   
+    lock_id = random.randrange(0, 32068)
+    logging.info('Granting lock (%d) on %s.', lock_id, filepath)
+    t = datetime.datetime.now() # putting timestamp
+    _locks[filepath] = Lock(lock_id, t, t)
+
+    return lock_id
+
+
+def _update_lock(filepath): #put new timestamp on last_used field
+    t = datetime.datetime.now()
+
+    logging.info('Update lock on %s from %s to %s.',
+                 filepath, _locks[filepath].last_used, t)
+
+    l = _locks[filepath]
+    l = Lock(l.lock_id, l.granted, t)
+    _locks[filepath] = l
+
+
+def _revoke_lock(filepath): # Revoke lock
+   
+    if filepath in _locks:
+        logging.info('Revoking lock on %s.', filepath)
+        del _locks[filepath]
+
+_config = {
+            'dbfile': 'locks.db',
+            'lock_lifetime': 60,
+         }
+
+logging.info('Loading config file lockserver.dfs.json.')
+utils.load_config(_config, 'lockserver.dfs.json')
+_locks = shelve.open(_config['dbfile'])
+
+atexit.register(lambda: _locks.close())
