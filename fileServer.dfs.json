@@ -1,0 +1,8 @@
+{
+    "nameserver": "127.0.0.1",
+    "lockserver": "127.0.0.1",
+    "srv": "127.0.0.1",
+    "directories": ["/data", "/src/linux", "/src/vim"],
+    "fsroot": "fs1/"
+}
+

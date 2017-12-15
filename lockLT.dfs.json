@@ -1,0 +1,5 @@
+#lifetime 15 seconds
+
+{
+    "lock_lifetime": 15
+}
