@@ -8,7 +8,7 @@ from contextlib import closing
 
 class DFSIOError(IOError): # Error when file is locked
     
-    pass
+    raise web.badrequest()
 
 
 class File(SpooledTemporaryFile):
@@ -76,8 +76,16 @@ class File(SpooledTemporaryFile):
         
         
     def commit(self): # send local file to fileserver
-        pass
         
+        if 'a' in self.mode or 'w' in self.mode:
+            data = self.read()
+            host, port = utils.get_host_port(self.srv)
+            with closing(HTTPConnection(host, port)) as con:
+            con.request('PUT', self.filepath + '?lock_id=%s' % self.lock_id,data)
+         response = con.getresponse()
+         status = response.status
+                if status != 200:
+                     raise DFSIOError
         
 _config = {
         'nameserver': None,
