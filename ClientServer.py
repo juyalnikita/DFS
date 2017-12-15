@@ -86,11 +86,25 @@ class File(SpooledTemporaryFile):
          status = response.status
                 if status != 200:
                      raise DFSIOError
+                        
+                        
+     def cache(filepath):
+        if filepath in File._cache:
+            filec = File._cache[filepath] #stores filepath that is to be retrieved from cache
+            host, port = utils.get_host_port(_config['nameserver'])
+            fs = utils.get_server(filepath, host, port)
+            host, port = utils.get_host_port(fs)
+            
+            with closing(HTTPConnection(host, port)) as con:
+                con.request('HEAD', filepath)
+              
+                if (f.last_modified ==con.getresponse().getheader('Last-Modified')):
+                    return f
         
 _config = {
         'nameserver': None,
         'lockserver': None,
         'max_size': 1024 ** 2,
          } 
-
 utils.load_config(_config, 'client.dfs.json')
+File._cache = {}
