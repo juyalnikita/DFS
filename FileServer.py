@@ -47,11 +47,19 @@ class FileServer: # This class will be responsible for storing and sharing files
         return 'OK'
     
     def HEAD(self, filepath):# To return the header/last time the file was modified
-            
-        pass
+        web.header('Content-Type', 'text/plain; charset=UTF-8')
 
-    
- 
+        _raise_if_dir_or_not_servable(filepath)
+        _raise_if_not_exists(filepath)
+        _raise_if_locked(filepath)
+
+        p = _get_local_path(filepath)
+        
+        web.header('Last-Modified', time.ctime(os.path.getmtime(p)))
+        
+        return ''  
+       
+        
  def _get_local_path(filepath):  # convert filepath URL to local path in fileserver.
    
     return os.path.join(os.getcwd(), _config['fsroot'], filepath[1:])
