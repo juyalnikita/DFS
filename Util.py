@@ -62,10 +62,16 @@ def get_server(filepath, host, port):
 
 
 def getlock(filepath, host, port): #This will get a lock from LockServer
-    pass
+    with closing(HTTPConnection(host, port)) as con:
+        con.request('POST', filepath)
+        response = con.getresponse()
+        status = response.status
+        
+        lock_id = response.read()
+        return lock_id
+        
 
-
-#def revokelock(filepath,host,port) # Revoke lock from file
-   # pass
-
-
+def revokelock(filepath,host,port,lock_id) # Revoke lock from file
+    with closing(HTTPConnection(host, port)) as con:
+        con.request('DELETE', filepath)
+        response = con.getresponse()
